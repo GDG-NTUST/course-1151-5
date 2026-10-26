@@ -8,7 +8,10 @@ extends Boss
 
 const ARMOR_PERCENT := 50
 
-var charging := false
+var charging := false:
+	set(value):
+		if _framework_boss_write("charging"):
+			charging = value
 
 
 func _init() -> void:
