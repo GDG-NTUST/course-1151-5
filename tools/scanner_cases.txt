@@ -1,0 +1,62 @@
+extends Mage
+# tools/scanner_test.gd 用的範例：結尾標了 BAD 的行（或「# BAD 下一行」的下一行）一定要被擋，其他行都不能被擋。
+# 副檔名是 .txt，Godot 不會把它當成程式。
+
+var count: int = 0
+var marks: Dictionary = {}
+var order := []
+
+func _init() -> void:
+	unit_name = "cases"
+	max_hp = 10
+	attack = 1
+	grid_position = Vector2i(1, 0)
+
+func on_battle_start() -> void:
+	var enemies: Array[Unit] = get_enemies()
+	var first: Unit = enemies[0]
+	var last: Unit = enemies[-1]
+	for i: int in range(enemies.size()):
+		var e: Unit = enemies[i]
+		var next: Unit = enemies[(i + 1) % enemies.size()]
+	var mid: int = enemies.size() / 2
+	var pick: Unit = get_enemies()[mid - 1]
+	marks[first] = 1
+	marks["hits"] = marks.get("hits", 0) + 1
+	order.append(last)
+	var grid := [[1, 2], [3, 4]]
+	var row: Array = [1, 2]
+	print(row[count])
+	if first in [last, pick]:
+		deal_damage(first, 1)
+
+func on_attack(target: Unit) -> void:
+	var k := "_frame" + "work_writing"
+	target[k] = true # BAD
+	target["h" + "p"] = 0 # BAD
+	target["%sframework_dead" % "_"] = true # BAD
+	var b: Variant = self["_FRAMEWORK_BATTLE".to_lower()] # BAD
+	var c: Variant = get(char(95) + "framework_battle") # BAD
+	var d: Variant = target.get(k) # BAD
+	var j = 0
+	target[j] = 1 # BAD
+	target[count.size()] = 1 # BAD
+	for v: Variant in inst_to_dict(self).values(): # BAD
+		print(v)
+	# BAD 下一行
+	target.set \
+		(k, true)
+	target.set( # BAD
+		k, true)
+	[true].reduce(target.set, k) # BAD
+	# BAD 下一行
+	var s := "\
+" ; target.set(k, true)
+	var gen = GDScript.new() # BAD
+	gen.source_code = "" # BAD
+	target.script = null # BAD
+	var n: Variant = JSON.to_native({}, true) # BAD
+	var arena: Node = get_node_or_null("../..") # BAD
+	var root: Variant = get_viewport() # BAD
+	propagate_call(k, []) # BAD
+	create_tween() # BAD
