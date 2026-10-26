@@ -173,7 +173,7 @@ func on_attack(target: Unit) -> void:
 
 - 雙方各有 **3×3 棋盤**：前排、中排、後排，每排有左、中、右三格。角色站好就**不會移動**
 - 每回合每隻角色輪流行動一次，**順序固定**：我方先、Boss 隊伍後；同一隊從前排到後排、每排從左到右。輪到時已經倒下的角色不會行動
-- 每回合開始：先回復[能量](#能量)，再結算[中毒](#流派)，然後才輪到角色行動
+- 每回合開始：先回復[能量](#能量)，接著 Boss 發動回合開始的能力（例如雷神蓄力），再結算[中毒](#流派)，然後才輪到角色行動
 - 每個動作（一次行動、一層毒發）結束後**馬上**結算倒下的角色：`on_death` → 死靈加成 → 隊友的 `on_ally_death`，全部結算完才輪到下一個動作
 - 一方全滅就結束；**打完 30 回合**還沒打倒 Boss 算你輸，同歸於盡也算你輸
 - 隨機用固定種子，同樣的隊伍打同樣的 Boss，結果永遠一樣
@@ -335,18 +335,22 @@ func on_frame(delta: float) -> void:
 - 用到自己資料夾以外的檔案（`preload`、`extends "路徑"` 都只能指向自己的資料夾）
 - `class_name`：全班的類別名稱會撞在一起，自己寫的類別請用 `preload("檔名.gd")`
 - `@tool`
-- 系統、檔案、網路、引擎的功能：`OS`、`FileAccess`、`DirAccess`、`load()`、`Engine`、`ProjectSettings`、`Input`、各種 `Server`、`Thread`、`HTTPRequest` 等
+- `static var`：每次建立的角色都要一樣，也不能把資料帶到下一場戰鬥
+- 系統、檔案、網路、引擎的功能：`OS`、`FileAccess`、`DirAccess`、`load()`、`Engine`、`ProjectSettings`、`Input`、各種 `Server`、`Thread`、`HTTPRequest`、`GDScript`、`JSON` 等
 - `_process`、`_ready`、`_input` 這類引擎方法：動畫請改用 `on_frame(delta)`
 - 在 `on_frame` 裡呼叫戰鬥 API
 - 在射手的 `choose_target()` 裡呼叫戰鬥 API（它只負責挑目標）
-- `get_tree`、`get_node`、`get_parent`、`$節點`：請用 `get_allies()` / `get_enemies()` 和棋盤查詢
-- `set()`、`call()` 這類方法，或任何 `_framework` 開頭的東西
+- `get_tree`、`get_node`、`get_parent`、`get_viewport`、`owner`、`$節點`：請用 `get_allies()` / `get_enemies()` 和棋盤查詢
+- `set()`、`call()`、`get()`、`script` 這類用名稱存取的寫法，或任何 `_framework` 開頭的東西
+- `[]` 裡放整數以外的東西（例如 `enemy["hp"]`）：`[]` 裡只能放整數或宣告成 `int` 的變數；Dictionary 要宣告型別 `var d: Dictionary = {}`
 - `randi()`、`randf()`、`shuffle()` 等內建隨機：請用 `random_int()` / `random_pick()`
 - `queue_free()`、`add_child()` 等新增或刪除節點的方法
 - 在 `_init()` 以外改 `hp`、`max_hp`、`attack`、`grid_position`、`school`（包括 `enemy.hp = 0`）：戰鬥中請用 `deal_damage()`、`heal()`、`buff_attack()`
 - 改 `energy`、`energy_regen`、`shield_points`、`curse_points`（連 `_init()` 裡也不行）：護盾請用 `shield()`、詛咒請用 `curse()`
 - 三個引號的多行字串
 - 繼承 `Boss`
+- 改別的角色（Boss、對手、隊友）的變數，例如 `enemy.charging = false`：只能改自己的，向量、顏色可以改分量（`position.y`）
+- 改寫框架的方法（`is_alive()`、`get_enemies()` 這些）：只能覆寫 `on_` 開頭的事件和射手的 `choose_target()`
 
 就算繞過掃描，戰鬥中直接改 `hp` 也不會成功，戰鬥紀錄會出現紅字。想想看為什麼要這樣設計？
 
@@ -421,7 +425,7 @@ godot --headless --script res://tools/boss_check.gd
 - 兩隊交錯行動：先手 1 號 → 後手 1 號 → 先手 2 號 → 後手 2 號 …（號碼照各隊的行動順序），一隊沒人了另一隊就繼續
 - 先手由兩隊的 GitHub 帳號決定，同一組對戰每次都是同一隊先手
 - 雙方同時全滅，**後手獲勝**
-- 超過 30 回合還沒分出勝負，比**剩餘血量比例**（還活著的角色血量總和 ÷ 開場時的 max_hp 總和），一樣多也是後手獲勝
+- 超過 30 回合還沒分出勝負，比**剩餘血量比例**（還活著的角色血量總和 ÷ 開場時的 max_hp 總和，召喚的分身不算），一樣多也是後手獲勝
 
 ### 開打（講師）
 

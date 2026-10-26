@@ -89,9 +89,9 @@ func on_attack(target: Unit) -> void:
 ## 回合流程
 
 - 行動順序固定：同一隊從前排到後排、每排從左到右。打 Boss 時我方先；隊伍對戰時兩隊交錯（先手 1 → 後手 1 → 先手 2 …）
-- 每回合開始：每隻角色回復能量 → 中毒的角色毒發 → 角色輪流行動
+- 每回合開始：每隻角色回復能量 → Boss 回合開始的能力（例如雷神蓄力）→ 中毒的角色毒發 → 角色輪流行動
 - 每個動作結束後馬上結算倒下的角色：`on_death` →（死靈 4 隻的全體傷害）→ 隊友的 `on_ally_death`
-- 打 Boss 最多 30 回合，打不完算輸，同歸於盡也算輸。隊伍對戰超過 30 回合比剩餘血量比例；同時全滅或比例一樣，後手獲勝
+- 打 Boss 最多 30 回合，打不完算輸，同歸於盡也算輸。隊伍對戰超過 30 回合比剩餘血量比例（召喚的分身不算）；同時全滅或比例一樣，後手獲勝
 - 隨機用固定種子，同樣的隊伍結果永遠一樣
 
 傷害照這個順序結算：刺客閃避（整次不算）→ 基礎傷害 → 攻擊者增傷（只有普攻：狂血 4 隻、戰士衝鋒、射手弱點射擊）→ 加上目標的詛咒並用掉 → 扣護盾（毒跳過）→ 坦克分擔 → 扣血。
@@ -163,7 +163,7 @@ func on_attack(target: Unit) -> void:
 
 掃描的是程式碼（註解和字串內容不算，但 `_framework` 寫在字串裡也會擋）。資料夾裡**每一個** `.gd` 都會掃：
 
-- `class_name`（全班會撞名，自己的類別用 `preload("檔名.gd")`）、`@tool`、三個引號的多行字串
+- `class_name`（全班會撞名，自己的類別用 `preload("檔名.gd")`）、`@tool`、`static var`、三個引號的多行字串
 - `preload` / `extends "路徑"` 指到自己資料夾以外的檔案
 - `load()`、`get_script()`、`get_property_list()`、`get_method_list()`、`instance_from_id()`、`str_to_var()`
 - 系統、檔案、網路、引擎類別：`OS`、`FileAccess`、`DirAccess`、`ResourceLoader`、`Engine`、`ProjectSettings`、`ClassDB`、`Input`、`Thread`、`HTTPRequest`、`IP`、`DisplayServer`、名字以 `Server` 結尾的類別等
