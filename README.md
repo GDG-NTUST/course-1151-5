@@ -336,12 +336,13 @@ func on_frame(delta: float) -> void:
 - `class_name`：全班的類別名稱會撞在一起，自己寫的類別請用 `preload("檔名.gd")`
 - `@tool`
 - `static var`：每次建立的角色都要一樣，也不能把資料帶到下一場戰鬥
-- 系統、檔案、網路、引擎的功能：`OS`、`FileAccess`、`DirAccess`、`load()`、`Engine`、`ProjectSettings`、`Input`、各種 `Server`、`Thread`、`HTTPRequest` 等
+- 系統、檔案、網路、引擎的功能：`OS`、`FileAccess`、`DirAccess`、`load()`、`Engine`、`ProjectSettings`、`Input`、各種 `Server`、`Thread`、`HTTPRequest`、`GDScript`、`JSON` 等
 - `_process`、`_ready`、`_input` 這類引擎方法：動畫請改用 `on_frame(delta)`
 - 在 `on_frame` 裡呼叫戰鬥 API
 - 在射手的 `choose_target()` 裡呼叫戰鬥 API（它只負責挑目標）
-- `get_tree`、`get_node`、`get_parent`、`$節點`：請用 `get_allies()` / `get_enemies()` 和棋盤查詢
-- `set()`、`call()` 這類方法，或任何 `_framework` 開頭的東西
+- `get_tree`、`get_node`、`get_parent`、`get_viewport`、`owner`、`$節點`：請用 `get_allies()` / `get_enemies()` 和棋盤查詢
+- `set()`、`call()`、`get()`、`script` 這類用名稱存取的寫法，或任何 `_framework` 開頭的東西
+- `[]` 裡放整數以外的東西（例如 `enemy["hp"]`）：`[]` 裡只能放整數或宣告成 `int` 的變數；Dictionary 要宣告型別 `var d: Dictionary = {}`
 - `randi()`、`randf()`、`shuffle()` 等內建隨機：請用 `random_int()` / `random_pick()`
 - `queue_free()`、`add_child()` 等新增或刪除節點的方法
 - 在 `_init()` 以外改 `hp`、`max_hp`、`attack`、`grid_position`、`school`（包括 `enemy.hp = 0`）：戰鬥中請用 `deal_damage()`、`heal()`、`buff_attack()`
