@@ -18,7 +18,7 @@ func _init() -> void:
 	grid_position = Vector2i(1, 0)      # 預設站前排中，子類別可以在 _init() 改
 
 
-## 每回合開始、攻擊之前呼叫
+## 每回合開始呼叫：回復能量之後、毒發和攻擊之前
 func on_round_start(_round_number: int) -> void: pass
 
 ## 被普攻打中時呼叫（技能、毒傷不算），在 on_hurt 之前

@@ -6,8 +6,8 @@ extends RefCounted
 ##
 ## 一回合的順序：
 ##   1. 每隻角色回復能量（energy_regen 點，最多 ENERGY_MAX）
-##   2. 中毒的角色照行動順序毒發，每層各算一次傷害
-##   3. Boss 的 on_round_start
+##   2. Boss 的 on_round_start（這回合的受傷倍率等狀態從這裡開始生效，毒發也算）
+##   3. 中毒的角色照行動順序毒發，每層各算一次傷害
 ##   4. 照行動順序，每隻角色輪流行動：選目標 → 扣血 → 自己的 on_attack → 受傷者的 on_hurt
 ##   5. 一方全滅就結束；打完 MAX_ROUNDS 回合算挑戰者輸
 ## 每個動作（一次行動、一層毒發）結束後馬上結算死亡：
@@ -152,18 +152,19 @@ func step() -> void:
 	for unit: Unit in _all_alive():
 		if not unit is Boss:
 			_write(unit, "energy", mini(Rules.ENERGY_MAX, unit.energy + unit.energy_regen))
-	for unit: Unit in _turn_order():
-		if unit.is_alive() and not unit._framework_poisons.is_empty():
-			_tick_poison(unit)
-			_resolve_deaths()
-	if _team_wiped():
-		_check_end()
-		return
-
+	# Boss 先設定這回合的狀態，毒發才會套用這回合（而不是上一回合）的受傷倍率
 	for unit: Unit in _all_alive():
 		if unit is Boss:
 			_fire(unit, "on_round_start", [round_number])
 	_resolve_deaths()
+	if _team_wiped():
+		_check_end()
+		return
+
+	for unit: Unit in _turn_order():
+		if unit.is_alive() and not unit._framework_poisons.is_empty():
+			_tick_poison(unit)
+			_resolve_deaths()
 	if _team_wiped():
 		_check_end()
 		return
