@@ -6,7 +6,7 @@ extends Team
 
 func _init() -> void:
 	team_name = "Otis 隊"
-	github = "Otis"            # 要和資料夾名稱一樣
+	github = "dacasita"        # 要和資料夾名稱一樣
 	members = [
 		preload("my_unit.gd"),     # 戰士・劇毒：前排左
 		preload("tank.gd"),        # 坦克・劇毒：前排中，擋住雷神
