@@ -335,6 +335,7 @@ func on_frame(delta: float) -> void:
 - 用到自己資料夾以外的檔案（`preload`、`extends "路徑"` 都只能指向自己的資料夾）
 - `class_name`：全班的類別名稱會撞在一起，自己寫的類別請用 `preload("檔名.gd")`
 - `@tool`
+- `static var`：每次建立的角色都要一樣，也不能把資料帶到下一場戰鬥
 - 系統、檔案、網路、引擎的功能：`OS`、`FileAccess`、`DirAccess`、`load()`、`Engine`、`ProjectSettings`、`Input`、各種 `Server`、`Thread`、`HTTPRequest` 等
 - `_process`、`_ready`、`_input` 這類引擎方法：動畫請改用 `on_frame(delta)`
 - 在 `on_frame` 裡呼叫戰鬥 API

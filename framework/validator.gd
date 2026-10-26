@@ -12,6 +12,8 @@ const BANNED := [
 		"不能用 @tool（打開專案時就會在 Godot 編輯器裡執行）"],
 	[r"\bclass_name\b",
 		"不能用 class_name（全班的類別名稱會撞在一起），自己寫的類別請用 preload(\"檔名.gd\")"],
+	[r"\bstatic\s+var\b",
+		"不能用 static var（每次建立的角色都要一樣，也不能把資料帶到下一場戰鬥）"],
 	[r"\b(_process|_physics_process|_ready|_enter_tree|_exit_tree|_notification|_input|_unhandled_input|_unhandled_key_input|_shortcut_input)\b",
 		"不能覆寫 {0}，畫面效果請寫在 on_frame(delta)"],
 	[r"\b(OS|FileAccess|DirAccess|ResourceLoader|ResourceSaver|ClassDB|Engine|EngineDebugger|ProjectSettings|JavaScriptBridge|Thread|Mutex|Semaphore|WorkerThreadPool|HTTPRequest|HTTPClient|StreamPeer\w*|PacketPeer\w*|WebSocket\w*|WebRTC\w*|ENet\w*|IP|Marshalls|Input|InputMap|DisplayServer|Performance|GDExtension\w*|\w+Server(2D|3D)?)\b",

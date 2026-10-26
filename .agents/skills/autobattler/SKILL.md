@@ -163,7 +163,7 @@ func on_attack(target: Unit) -> void:
 
 掃描的是程式碼（註解和字串內容不算，但 `_framework` 寫在字串裡也會擋）。資料夾裡**每一個** `.gd` 都會掃：
 
-- `class_name`（全班會撞名，自己的類別用 `preload("檔名.gd")`）、`@tool`、三個引號的多行字串
+- `class_name`（全班會撞名，自己的類別用 `preload("檔名.gd")`）、`@tool`、`static var`、三個引號的多行字串
 - `preload` / `extends "路徑"` 指到自己資料夾以外的檔案
 - `load()`、`get_script()`、`get_property_list()`、`get_method_list()`、`instance_from_id()`、`str_to_var()`
 - 系統、檔案、網路、引擎類別：`OS`、`FileAccess`、`DirAccess`、`ResourceLoader`、`Engine`、`ProjectSettings`、`ClassDB`、`Input`、`Thread`、`HTTPRequest`、`IP`、`DisplayServer`、名字以 `Server` 結尾的類別等
