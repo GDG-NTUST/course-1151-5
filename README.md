@@ -348,6 +348,8 @@ func on_frame(delta: float) -> void:
 - 改 `energy`、`energy_regen`、`shield_points`、`curse_points`（連 `_init()` 裡也不行）：護盾請用 `shield()`、詛咒請用 `curse()`
 - 三個引號的多行字串
 - 繼承 `Boss`
+- 改別的角色（Boss、對手、隊友）的變數，例如 `enemy.charging = false`：只能改自己的，向量、顏色可以改分量（`position.y`）
+- 改寫框架的方法（`is_alive()`、`get_enemies()` 這些）：只能覆寫 `on_` 開頭的事件和射手的 `choose_target()`
 
 就算繞過掃描，戰鬥中直接改 `hp` 也不會成功，戰鬥紀錄會出現紅字。想想看為什麼要這樣設計？
 

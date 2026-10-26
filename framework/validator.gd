@@ -40,6 +40,14 @@ const FRAME_FORBIDDEN := r"\b(deal_damage|heal|buff_attack|summon_token|say|pois
 const STAT_WRITE := r"(^|[^\w.])((?:\w+\.)*)(hp|max_hp|attack|grid_position|school|energy|energy_regen|shield_points|curse_points)\s*([-+*/%]?=)(?!=)"
 # 只有框架能改的狀態，連 _init() 裡也不能改
 const FRAMEWORK_ONLY: Array[String] = ["energy", "energy_regen", "shield_points", "curse_points"]
+# 敘述開頭（或 : ; 後面）被指定的目標，例如 enemy.charging、get_allies()[0].mood、o.memory[k]；== 是比較，不算
+const ASSIGN_TARGET := r"(?:^|[:;])\s*((?:\w+|\((?:[^()]|\([^()]*\))*\)|\[[^\[\]]*\])(?:\.\w+|\((?:[^()]|\([^()]*\))*\)|\[[^\[\]]*\])*)\s*(?:\*\*|<<|>>|[-+*/%&|^])?=(?!=)"
+# 改成員前先拿掉不是指定的冒號：函式參數 func f(a: X.Y = 1)、型別標註 var s: Unit.School = …
+const FUNC_PARAMS := r"\bfunc\b[^(]*\((?:[^()]|\([^()]*\))*\)"
+const VAR_TYPE := r"\b((?:var|const)\s+\w+)\s*:(?!=)[^=;]*"
+const GROUPS := r"\((?:[^()]|\([^()]*\))*\)|\[[^\[\]]*\]"
+# 自己的向量、顏色可以改分量：position.y、modulate.a、區域變數 v.x
+const COMPONENTS: Array[String] = ["x", "y", "z", "w", "r", "g", "b", "a", "h", "s", "v", "r8", "g8", "b8", "a8"]
 
 
 ## 檢查 teams/<github>/：先掃描整個資料夾的程式碼，通過了才執行 team.gd 和角色的 _init()
@@ -201,6 +209,7 @@ static func check_source(path: String) -> Array[String]:
 	# 學員的檔案只能用自己隊伍資料夾 teams/<帳號>/ 裡的東西
 	var team_root: String = Rules.team_dir(path.trim_prefix(Rules.TEAMS_DIR + "/").get_slice("/", 0))
 	var frame_regex := RegEx.create_from_string(FRAME_FORBIDDEN)
+	var framework_methods := _framework_methods()
 	for i in lines.size():
 		var code := _strip(lines[i])
 		if code.strip_edges() == "":
@@ -215,6 +224,8 @@ static func check_source(path: String) -> Array[String]:
 			func_indent = func_match.get_string(1).length()
 
 		var where := "%s 第 %d 行" % [_short(path), i + 1]
+		if func_match and framework_methods.has(func_name):
+			errors.append("%s：不能改寫框架的 %s()，只能覆寫 on_ 開頭的事件和射手的 choose_target()" % [where, func_name])
 		for rule in BANNED:
 			var found: RegExMatch = RegEx.create_from_string(rule[0]).search(code)
 			if found:
@@ -235,6 +246,10 @@ static func check_source(path: String) -> Array[String]:
 		var stat_match: RegExMatch = stat_regex.search(code)
 		var statement: String = code.strip_edges()
 		var stat: String = stat_match.get_string(3) if stat_match else ""
+		var member: String = _member_write(code)
+		if member != "" and not stat_match:
+			errors.append("%s：不能改別的角色或物件的 %s，只能改自己的變數；向量、顏色可以改分量，例如 position.y"
+					% [where, member])
 		if stat_match and not func_match and not statement.begins_with("var ") and not statement.begins_with("const ") \
 				and (func_name != "_init" or FRAMEWORK_ONLY.has(stat)):
 			if FRAMEWORK_ONLY.has(stat):
@@ -246,6 +261,32 @@ static func check_source(path: String) -> Array[String]:
 						else "戰鬥中請用 deal_damage()、heal()、buff_attack()"
 				errors.append("%s：%s%s 只能在 _init() 裡設定；%s" % [where, stat_match.get_string(2), stat, fix])
 	return errors
+
+
+## get_enemies() 拿到的是角色本身，enemy.charging = false 會直接改到 Boss 或別隊的狀態。
+## 這行有指定別的物件的成員就回傳那個目標，只改自己（self.x、x、v.x 這種分量）回傳 ""
+static func _member_write(code: String) -> String:
+	var line := RegEx.create_from_string(FUNC_PARAMS).sub(code, "func()", true)
+	line = RegEx.create_from_string(VAR_TYPE).sub(line, "$1 ", true)
+	var groups := RegEx.create_from_string(GROUPS)
+	for found: RegExMatch in RegEx.create_from_string(ASSIGN_TARGET).search_all(line):
+		var target: String = found.get_string(1).trim_prefix("self.")
+		var parts: PackedStringArray = groups.sub(target, "", true).split(".")
+		if parts.size() == 1 or (parts.size() == 2 and COMPONENTS.has(parts[1]) and target.begins_with(parts[0] + ".")):
+			continue
+		return found.get_string(1)
+	return ""
+
+
+## Unit 提供的方法（is_alive()、get_enemies()…）。框架和 Boss 會在自己的事件裡呼叫別隻角色的這些方法，
+## 學員改寫的話，程式就會用 Boss 的身分執行，所以不能改寫
+static func _framework_methods() -> Array[String]:
+	var names: Array[String] = []
+	for method: Dictionary in (Unit as Script).get_script_method_list():
+		var method_name: String = method.name
+		if not method_name.begins_with("on_") and not method_name.begins_with("_") and not method_name.begins_with("@"):
+			names.append(method_name)
+	return names
 
 
 ## 去掉註解和字串內容，避免誤判；keep_strings = true 時保留字串內容
