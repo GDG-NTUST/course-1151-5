@@ -35,7 +35,7 @@ extends RefCounted
 ## 隊伍對戰（setup_versus）：
 ##   - 先手由兩隊的 GitHub 帳號算出來，同一組對戰每次都一樣
 ##   - 兩隊交錯行動：先手 1 → 後手 1 → 先手 2 → 後手 2 …，一隊沒人了另一隊就繼續
-##   - 同時全滅由後手獲勝；超過 MAX_ROUNDS 回合比剩餘血量比例，一樣也是後手獲勝
+##   - 同時全滅由後手獲勝；超過 MAX_ROUNDS 回合比剩餘血量比例（hp_ratio，分身不算），一樣也是後手獲勝
 ##
 ## 職業的攻擊目標（「最前排」指還有活著角色的最前面一排）：
 ##   戰士、坦克：敵方最前排，優先同一行，沒有就打最近的一行（一樣近打左邊）
@@ -439,11 +439,13 @@ func _check_versus_end() -> bool:
 	return result != ""
 
 
-## 剩餘血量比例：還活著的角色目前血量總和 ÷ 開場時的 max_hp 總和
+## 剩餘血量比例：還活著的角色目前血量總和 ÷ 開場時的 max_hp 總和。
+## 召喚的分身不算（分母沒有牠們，算進來比例會超過 100%）
 func hp_ratio(team: int) -> float:
 	var total: int = 0
 	for unit: Unit in get_alive(team):
-		total += unit.hp
+		if not unit._framework_token:
+			total += unit.hp
 	return float(total) / maxf(1.0, _start_max_hp[team])
 
 

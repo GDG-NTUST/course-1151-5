@@ -4,12 +4,14 @@ extends SceneTree
 ##   godot --headless --script res://tools/regression_check.gd
 ##
 ## 1. 雷神蓄力的「受傷 ×2」只算在蓄力那回合：第 3 回合的毒發 ×2，第 4 回合的毒發不會 ×2
+## 2. 召喚的分身不算進對戰的剩餘血量比例：比例不會超過 100%，也不會因此贏下打滿 30 回合的對戰
 
 var _failed := false
 
 
 func _init() -> void:
 	_check_lv3_charge()
+	_check_token_hp_ratio()
 	print("✗ 有檢查沒通過" if _failed else "✓ 全部通過")
 	quit(1 if _failed else 0)
 
@@ -30,6 +32,23 @@ func _check_lv3_charge() -> void:
 	battle.unit_damaged.disconnect(record)   # lambda 抓著 battle，不斷開會互相參照、釋放不掉
 	var got: Array = [taken.get(1), taken.get(2), taken.get(3), taken.get(4)]
 	_expect("雷神第 1–4 回合受到的毒傷是 [1, 1, 2, 1]", got == [1, 1, 2, 1], str(got))
+	_free(battle)
+
+
+## 左隊 11 血：A 10 血、B 1 血（第 1 回合毒死，倒下時召喚 10 血的分身）；右隊 10 血。誰都不攻擊，打滿 30 回合
+func _check_token_hp_ratio() -> void:
+	var dies: GDScript = _unit("Unit", 1, Vector2i(1, 0), "\nfunc on_death() -> void:\n\tsummon_token(10, 0)\n")
+	var battle: Battle = Battle.new([_unit("Unit", 10, Vector2i(1, 2)), dies], [_unit("Unit", 10, Vector2i(1, 0))])
+	battle.setup_versus("left", "right")
+	var victim: Unit = battle.teams[Battle.PLAYER][0]
+	_add_poison(victim, victim, 1)
+	battle.start()
+	battle.step()
+	var ratio: float = battle.hp_ratio(Battle.PLAYER)
+	_expect("召喚分身後左隊的剩餘血量比例不超過 100%", battle.get_alive(Battle.PLAYER).size() == 2 and ratio <= 1.0, "%.2f" % ratio)
+	while battle.result == "":
+		battle.step()
+	_expect("打滿 30 回合比血量，右隊（100%）贏左隊（10/11）", battle.winner == Battle.ENEMY, battle.result_reason)
 	_free(battle)
 
 
