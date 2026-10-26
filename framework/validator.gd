@@ -65,33 +65,65 @@ static func check_team_folder(github: String) -> Array[String]:
 	return errors
 
 
-## 檢查角色：要在自己的資料夾裡、數值範圍、站位、預算
+## 檢查角色腳本：先確認都在自己的資料夾裡才執行 _init()，建立出來的角色交給 check_units()
 static func check_team(members: Array, dir: String) -> Array[String]:
 	var errors: Array[String] = []
-	if members.is_empty():
+	for i: int in members.size():
+		var script: Script = members[i] as Script
+		if script == null:
+			errors.append("members 第 %d 個不是角色腳本" % (i + 1))
+		elif not script.resource_path.begins_with(dir + "/"):
+			errors.append("%s：角色要放在自己的資料夾 %s/ 裡" % [_short(script.resource_path), _short(dir)])
+	if not errors.is_empty():
+		return errors
+	var units: Array = []
+	for script: Script in members:
+		units.append(script.new())
+	errors = check_units(units, dir)
+	for unit: Object in units:
+		if unit is Node:
+			(unit as Node).free()
+	return errors
+
+
+## 檢查 Battle 實際建立的那一隊。學員的 _init() 每次執行的結果可能不一樣，check_team_folder()
+## 檢查過的不一定是上場的這一批，所以 Battle.new() 之後、start() 之前要再檢查一次
+static func check_side(battle: Battle, side: int, github: String) -> Array[String]:
+	return check_units(battle.created[side], Rules.team_dir(github))
+
+
+## 檢查建立出來的角色：要在自己的資料夾裡、數值範圍、站位、預算、同一個角色檔只能上場一次。
+## units 照 members 的順序，裡面可能有 null 或不是 Unit 的東西；這裡不能假設型別，出錯中斷就等於通過
+static func check_units(units: Array, dir: String) -> Array[String]:
+	var errors: Array[String] = []
+	if units.is_empty():
 		errors.append("隊伍是空的，請在 team.gd 的 members 加入角色")
 		return errors
-	if members.size() > Rules.MAX_UNITS:
-		errors.append("隊伍最多 %d 隻，現在有 %d 隻" % [Rules.MAX_UNITS, members.size()])
+	if units.size() > Rules.MAX_UNITS:
+		errors.append("隊伍最多 %d 隻，現在有 %d 隻" % [Rules.MAX_UNITS, units.size()])
 
 	var total: int = 0
 	var receipt: Array[String] = []
 	var used: Dictionary = {}       # 格子 -> 站在那裡的角色名稱
-	for i: int in members.size():
-		var script: Script = members[i] as Script
+	var seen: Dictionary = {}       # 已經上場的角色腳本
+	for i: int in units.size():
+		var unit: Object = units[i]
+		var script: Script = null
+		if unit != null:
+			script = unit.get_script() as Script
 		if script == null:
 			errors.append("members 第 %d 個不是角色腳本" % (i + 1))
 			continue
 		if not script.resource_path.begins_with(dir + "/"):
 			errors.append("%s：角色要放在自己的資料夾 %s/ 裡" % [_short(script.resource_path), _short(dir)])
 			continue
-
-		var unit: Object = script.new()
 		if not unit is Unit:
 			errors.append("%s 要 extends Unit 或某個職業" % _short(script.resource_path))
-			if unit is Node:
-				(unit as Node).free()
 			continue
+		if seen.has(script):
+			errors.append("%s：同一個角色檔只能上場一次，要兩隻一樣的就再寫一個檔案繼承它" % _short(script.resource_path))
+			continue
+		seen[script] = true
 		if unit is Boss:
 			errors.append("%s 不能繼承 Boss" % _short(script.resource_path))
 		var label: String = "%s（%s）" % [unit.unit_name, _short(script.resource_path)]
@@ -115,7 +147,6 @@ static func check_team(members: Array, dir: String) -> Array[String]:
 		var cost: int = Rules.unit_cost(unit.max_hp, unit.attack)
 		total += cost
 		receipt.append("%s %d+2×%d=%d" % [unit.unit_name, unit.max_hp, unit.attack, cost])
-		(unit as Node).free()
 
 	if total > Rules.BUDGET:
 		errors.append("總花費 %d 點，超過預算 %d 點：%s" % [total, Rules.BUDGET, "、".join(receipt)])
@@ -141,16 +172,14 @@ static func gd_files(dir: String) -> Array[String]:
 	return files
 
 
-## 總花費明細，例如「騎士 28 + 史萊姆 18 = 46 / 100」
-static func describe_cost(members: Array) -> String:
+## 總花費明細，例如「騎士 28 + 史萊姆 18 = 46 / 100」；units 是通過 check_side() 的 Battle.created
+static func describe_cost(units: Array) -> String:
 	var parts: Array[String] = []
 	var total := 0
-	for script in members:
-		var unit = script.new()
+	for unit: Unit in units:
 		var cost := Rules.unit_cost(unit.max_hp, unit.attack)
 		parts.append("%s %d" % [unit.unit_name, cost])
 		total += cost
-		unit.free()
 	return "%s = %d / %d 點" % [" + ".join(parts), total, Rules.BUDGET]
 
 

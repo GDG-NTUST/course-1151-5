@@ -71,6 +71,7 @@ const TEAM_COLORS := ["#7cc4ff", "#ff8a80"]
 
 var teams: Array = [[], []]   # 兩隊還在場上的角色（Array of Unit），照行動順序排
 var roster: Array[Unit] = []  # 這場戰鬥出現過的所有角色（包含陣亡的）
+var created: Array = [[], []] # 兩隊的腳本 new() 出來的東西，照傳進來的順序（可能是 null 或不是 Unit）
 var round_number := 0
 var result := ""              # "" 進行中 / "win"（左邊、玩家贏）/ "lose"
 var result_reason := ""
@@ -97,16 +98,20 @@ const KIND_POISON := 2   # 毒發（無視護盾）
 const KIND_NECRO := 3    # 死靈 4 隻的全體傷害
 
 
-## 兩隊的角色腳本，每隻站在自己 grid_position 那一格；要先通過 Validator 檢查
+## 兩隊的角色腳本，每隻站在自己 grid_position 那一格。要先通過 Validator.check_team_folder()，
+## 建立後、start() 之前還要用 Validator.check_side() 檢查學員那一隊的 created
 func _init(player_scripts: Array[Script], enemy_scripts: Array[Script]) -> void:
 	rng.seed = Rules.SEED
 	seed(Rules.SEED)
-	for script: Script in player_scripts:
-		var unit: Unit = script.new()
-		_add_unit(unit, PLAYER, unit.grid_position)
-	for script: Script in enemy_scripts:
-		var unit: Unit = script.new()
-		_add_unit(unit, ENEMY, unit.grid_position)
+	var scripts: Array = [player_scripts, enemy_scripts]
+	for team: int in [PLAYER, ENEMY]:
+		for script: Script in scripts[team]:
+			# 不是角色的東西也照樣建立、記下來給 Validator 擋；不能在這裡出錯中斷，另一隊會沒建立
+			var object: Object = script.new() if script != null else null
+			created[team].append(object)
+			var unit: Unit = object as Unit
+			if unit != null:
+				_add_unit(unit, team, unit.grid_position)
 	for unit: Unit in roster:
 		_start_max_hp[unit._framework_team] += unit.max_hp
 		_school_counts[unit._framework_team][clampi(unit.school, 0, Rules.SCHOOL_NAMES.size() - 1)] += 1

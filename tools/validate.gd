@@ -46,6 +46,7 @@ class Section:
 
 var github: String = ""
 var sections: Array[Section] = []
+var battle: Battle = null   # 第 4 項建立並檢查、第 5 項試打的同一場戰鬥
 
 
 func _init() -> void:
@@ -76,7 +77,8 @@ func _init() -> void:
 	print(report)
 	if summary_path != "":
 		_append(summary_path, report)
-	quit(0 if sections.all(func(s: Section) -> bool: return s.status != FAIL) else 1)
+	# ok 也要看：學員的東西讓檢查函式中途出錯的話，它會回傳 false 卻沒標 FAIL
+	quit(0 if ok and sections.all(func(s: Section) -> bool: return s.status != FAIL) else 1)
 
 
 # ---------------------------------------------------------------- 檢查
@@ -147,18 +149,24 @@ func _check_team() -> bool:
 	var catcher: ErrorCatcher = ErrorCatcher.new()
 	OS.add_logger(catcher)
 	var errors: Array[String] = Validator.check_team_folder(github)
+	var team: Team = null
+	if errors.is_empty():
+		# 檢查第 5 項真的會上場的這一批角色
+		team = Team.load_folder(github)
+		battle = Battle.new(team.members, [load(Rules.BOSSES[TEST_BOSS]) as Script])
+		errors = Validator.check_side(battle, Battle.PLAYER, github)
 	OS.remove_logger(catcher)
 	errors.append_array(catcher.errors)
 	if not errors.is_empty():
 		section.status = FAIL
 		section.lines.append_array(errors)
+		if battle != null:
+			for unit: Unit in battle.roster:
+				unit.free()
 		return false
-	var team: Team = Team.load_folder(github)
-	section.lines.append("%s：%s" % [team.label(), Validator.describe_cost(team.members)])
-	for script: Script in team.members:
-		var unit: Unit = script.new()
+	section.lines.append("%s：%s" % [team.label(), Validator.describe_cost(battle.created[Battle.PLAYER])])
+	for unit: Unit in battle.created[Battle.PLAYER]:
 		section.lines.append("%s（%s）站在 %s" % [unit.unit_name, unit.get_role(), Rules.cell_label(unit.grid_position)])
-		unit.free()
 	return true
 
 
@@ -166,8 +174,6 @@ func _check_battle() -> void:
 	var section: Section = _section("5. 試打 Boss Lv1（輸贏不影響檢查）")
 	var catcher: ErrorCatcher = ErrorCatcher.new()
 	OS.add_logger(catcher)
-	var team: Team = Team.load_folder(github)
-	var battle: Battle = Battle.new(team.members, [load(Rules.BOSSES[TEST_BOSS]) as Script])
 	var violations: Array[String] = []
 	battle.logged.connect(func(text: String) -> void:
 		if text.contains("⚠"):

@@ -57,9 +57,16 @@ func setup_boss(github: String, boss_key: String) -> void:
 
 	var team: Team = Team.load_folder(github)
 	var boss_script: Script = load(Rules.BOSSES[boss_key])
-	_start(Battle.new(team.members, [boss_script]))
+	var new_battle: Battle = Battle.new(team.members, [boss_script])
+	errors = Validator.check_side(new_battle, Battle.PLAYER, github)
+	if not errors.is_empty():
+		_discard(new_battle)
+		show_errors(errors)
+		return
+	var cost: String = Validator.describe_cost(new_battle.created[Battle.PLAYER])   # 開打前算，on_battle_start 可能加攻擊
+	_start(new_battle)
 	var boss_name: String = battle.teams[Battle.ENEMY][0].unit_name
-	title_label.text = "挑戰：%s　　%s：%s" % [boss_name, team.label(), Validator.describe_cost(team.members)]
+	title_label.text = "挑戰：%s　　%s：%s" % [boss_name, team.label(), cost]
 
 
 ## 兩隊對戰：left 在下半部（藍）、right 在上半部（紅）
@@ -76,10 +83,25 @@ func setup_versus(left: String, right: String) -> void:
 	var left_team: Team = Team.load_folder(left)
 	var right_team: Team = Team.load_folder(right)
 	var new_battle: Battle = Battle.new(left_team.members, right_team.members)
+	var sides: Array[String] = [left, right]
+	for side: int in [Battle.PLAYER, Battle.ENEMY]:
+		for error: String in Validator.check_side(new_battle, side, sides[side]):
+			errors.append("%s：%s" % [sides[side], error])
+	if not errors.is_empty():
+		_discard(new_battle)
+		show_errors(errors)
+		title_label.text = "%s vs %s：有隊伍沒通過檢查" % [left, right]
+		return
 	new_battle.setup_versus(left, right)
 	_start(new_battle)
 	title_label.text = "藍 %s　vs　紅 %s　　先手：%s" % [left_team.label(), right_team.label(),
 			new_battle.side_names[new_battle.first_team]]
+
+
+## 沒通過檢查、不會開打的戰鬥：角色還沒放進場景，要自己釋放
+func _discard(rejected: Battle) -> void:
+	for unit: Unit in rejected.roster:
+		unit.free()
 
 
 func _start(new_battle: Battle) -> void:
