@@ -26,27 +26,39 @@ func _boss(github: String, boss_key: String) -> int:
 		errors.append("Boss 要是 %s 其中一個，現在是 \"%s\"" % [", ".join(Rules.BOSSES.keys()), boss_key])
 	else:
 		errors = Validator.check_team_folder(github)
+	var team: Team = null
+	var battle: Battle = null
+	if errors.is_empty():
+		team = Team.load_folder(github)
+		battle = Battle.new(team.members, [load(Rules.BOSSES[boss_key]) as Script])
+		errors = Validator.check_side(battle, Battle.PLAYER, github)
 	if not errors.is_empty():
 		for error: String in errors:
 			print("✗ ", error)
+		if battle != null:
+			_free(battle)
 		return 1
 
-	var team: Team = Team.load_folder(github)
-	var battle: Battle = Battle.new(team.members, [load(Rules.BOSSES[boss_key]) as Script])
-	print("%s vs %s：%s" % [team.label(), boss_key, Validator.describe_cost(team.members)])
+	print("%s vs %s：%s" % [team.label(), boss_key, Validator.describe_cost(battle.created[Battle.PLAYER])])
 	_play(battle)
 	return 0 if battle.result == "win" else 2
 
 
 func _versus(left: String, right: String) -> int:
 	var report: Dictionary = {"left": left, "right": right, "first": "", "winner": "", "rounds": 0, "reason": ""}
+	var sides: Array[String] = [left, right]
 	var bad: Array[String] = []
-	for github: String in [left, right]:
-		var errors: Array[String] = Validator.check_team_folder(github)
-		for error: String in errors:
-			print("✗ %s：%s" % [github, error])
-		if not errors.is_empty():
-			bad.append(github)
+	for github: String in sides:
+		_mark_bad(github, Validator.check_team_folder(github), bad)
+	var left_team: Team = null
+	var right_team: Team = null
+	var battle: Battle = null
+	if bad.is_empty():
+		left_team = Team.load_folder(left)
+		right_team = Team.load_folder(right)
+		battle = Battle.new(left_team.members, right_team.members)
+		for side: int in [Battle.PLAYER, Battle.ENEMY]:
+			_mark_bad(sides[side], Validator.check_side(battle, side, sides[side]), bad)
 
 	if bad.size() == 2:
 		report["reason"] = "兩隊都沒有通過檢查"
@@ -54,17 +66,16 @@ func _versus(left: String, right: String) -> int:
 		report["winner"] = right if bad[0] == left else left
 		report["reason"] = "%s 沒有通過檢查，不戰而勝" % bad[0]
 	else:
-		var left_team: Team = Team.load_folder(left)
-		var right_team: Team = Team.load_folder(right)
-		var battle: Battle = Battle.new(left_team.members, right_team.members)
 		battle.setup_versus(left, right)
-		print("%s：%s" % [left_team.label(), Validator.describe_cost(left_team.members)])
-		print("%s：%s" % [right_team.label(), Validator.describe_cost(right_team.members)])
+		print("%s：%s" % [left_team.label(), Validator.describe_cost(battle.created[Battle.PLAYER])])
+		print("%s：%s" % [right_team.label(), Validator.describe_cost(battle.created[Battle.ENEMY])])
 		_play(battle)
 		report["first"] = battle.side_names[battle.first_team]
 		report["winner"] = battle.side_names[battle.winner]
 		report["rounds"] = battle.round_number
 		report["reason"] = battle.result_reason
+	if not bad.is_empty() and battle != null:
+		_free(battle)
 
 	print(JSON.stringify(report))
 	return 1 if bad.size() == 2 else 0
@@ -77,5 +88,16 @@ func _play(battle: Battle) -> void:
 	battle.start()
 	while battle.result == "":
 		battle.step()
+	_free(battle)
+
+
+func _mark_bad(github: String, errors: Array[String], bad: Array[String]) -> void:
+	for error: String in errors:
+		print("✗ %s：%s" % [github, error])
+	if not errors.is_empty():
+		bad.append(github)
+
+
+func _free(battle: Battle) -> void:
 	for unit: Unit in battle.roster:
 		unit.free()

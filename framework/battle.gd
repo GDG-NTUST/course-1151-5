@@ -6,8 +6,8 @@ extends RefCounted
 ##
 ## 一回合的順序：
 ##   1. 每隻角色回復能量（energy_regen 點，最多 ENERGY_MAX）
-##   2. 中毒的角色照行動順序毒發，每層各算一次傷害
-##   3. Boss 的 on_round_start
+##   2. Boss 的 on_round_start（這回合的受傷倍率等狀態從這裡開始生效，毒發也算）
+##   3. 中毒的角色照行動順序毒發，每層各算一次傷害
 ##   4. 照行動順序，每隻角色輪流行動：選目標 → 扣血 → 自己的 on_attack → 受傷者的 on_hurt
 ##   5. 一方全滅就結束；打完 MAX_ROUNDS 回合算挑戰者輸
 ## 每個動作（一次行動、一層毒發）結束後馬上結算死亡：
@@ -35,7 +35,7 @@ extends RefCounted
 ## 隊伍對戰（setup_versus）：
 ##   - 先手由兩隊的 GitHub 帳號算出來，同一組對戰每次都一樣
 ##   - 兩隊交錯行動：先手 1 → 後手 1 → 先手 2 → 後手 2 …，一隊沒人了另一隊就繼續
-##   - 同時全滅由後手獲勝；超過 MAX_ROUNDS 回合比剩餘血量比例，一樣也是後手獲勝
+##   - 同時全滅由後手獲勝；超過 MAX_ROUNDS 回合比剩餘血量比例（hp_ratio，分身不算），一樣也是後手獲勝
 ##
 ## 職業的攻擊目標（「最前排」指還有活著角色的最前面一排）：
 ##   戰士、坦克：敵方最前排，優先同一行，沒有就打最近的一行（一樣近打左邊）
@@ -71,6 +71,7 @@ const TEAM_COLORS := ["#7cc4ff", "#ff8a80"]
 
 var teams: Array = [[], []]   # 兩隊還在場上的角色（Array of Unit），照行動順序排
 var roster: Array[Unit] = []  # 這場戰鬥出現過的所有角色（包含陣亡的）
+var created: Array = [[], []] # 兩隊的腳本 new() 出來的東西，照傳進來的順序（可能是 null 或不是 Unit）
 var round_number := 0
 var result := ""              # "" 進行中 / "win"（左邊、玩家贏）/ "lose"
 var result_reason := ""
@@ -97,16 +98,20 @@ const KIND_POISON := 2   # 毒發（無視護盾）
 const KIND_NECRO := 3    # 死靈 4 隻的全體傷害
 
 
-## 兩隊的角色腳本，每隻站在自己 grid_position 那一格；要先通過 Validator 檢查
+## 兩隊的角色腳本，每隻站在自己 grid_position 那一格。要先通過 Validator.check_team_folder()，
+## 建立後、start() 之前還要用 Validator.check_side() 檢查學員那一隊的 created
 func _init(player_scripts: Array[Script], enemy_scripts: Array[Script]) -> void:
 	rng.seed = Rules.SEED
 	seed(Rules.SEED)
-	for script: Script in player_scripts:
-		var unit: Unit = script.new()
-		_add_unit(unit, PLAYER, unit.grid_position)
-	for script: Script in enemy_scripts:
-		var unit: Unit = script.new()
-		_add_unit(unit, ENEMY, unit.grid_position)
+	var scripts: Array = [player_scripts, enemy_scripts]
+	for team: int in [PLAYER, ENEMY]:
+		for script: Script in scripts[team]:
+			# 不是角色的東西也照樣建立、記下來給 Validator 擋；不能在這裡出錯中斷，另一隊會沒建立
+			var object: Object = script.new() if script != null else null
+			created[team].append(object)
+			var unit: Unit = object as Unit
+			if unit != null:
+				_add_unit(unit, team, unit.grid_position)
 	for unit: Unit in roster:
 		_start_max_hp[unit._framework_team] += unit.max_hp
 		_school_counts[unit._framework_team][clampi(unit.school, 0, Rules.SCHOOL_NAMES.size() - 1)] += 1
@@ -152,18 +157,19 @@ func step() -> void:
 	for unit: Unit in _all_alive():
 		if not unit is Boss:
 			_write(unit, "energy", mini(Rules.ENERGY_MAX, unit.energy + unit.energy_regen))
-	for unit: Unit in _turn_order():
-		if unit.is_alive() and not unit._framework_poisons.is_empty():
-			_tick_poison(unit)
-			_resolve_deaths()
-	if _team_wiped():
-		_check_end()
-		return
-
+	# Boss 先設定這回合的狀態，毒發才會套用這回合（而不是上一回合）的受傷倍率
 	for unit: Unit in _all_alive():
 		if unit is Boss:
 			_fire(unit, "on_round_start", [round_number])
 	_resolve_deaths()
+	if _team_wiped():
+		_check_end()
+		return
+
+	for unit: Unit in _turn_order():
+		if unit.is_alive() and not unit._framework_poisons.is_empty():
+			_tick_poison(unit)
+			_resolve_deaths()
 	if _team_wiped():
 		_check_end()
 		return
@@ -438,11 +444,13 @@ func _check_versus_end() -> bool:
 	return result != ""
 
 
-## 剩餘血量比例：還活著的角色目前血量總和 ÷ 開場時的 max_hp 總和
+## 剩餘血量比例：還活著的角色目前血量總和 ÷ 開場時的 max_hp 總和。
+## 召喚的分身不算（分母沒有牠們，算進來比例會超過 100%）
 func hp_ratio(team: int) -> float:
 	var total: int = 0
 	for unit: Unit in get_alive(team):
-		total += unit.hp
+		if not unit._framework_token:
+			total += unit.hp
 	return float(total) / maxf(1.0, _start_max_hp[team])
 
 

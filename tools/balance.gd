@@ -56,6 +56,9 @@ func _init() -> void:
 			wins[b][a] = 0
 			for game: int in games:
 				var battle: Battle = _play(a, b, members[a], members[b], Rules.SEED + game)
+				if battle == null:
+					quit(1)
+					return
 				var winner: String = battle.side_names[battle.winner]
 				var loser: String = b if winner == a else a
 				wins[winner][loser] += 1
@@ -77,13 +80,25 @@ func _init() -> void:
 	quit(0)
 
 
-## 打一場：seed 決定先手和隨機數
+## 打一場：seed 決定先手和隨機數。上場的角色沒通過檢查就回傳 null
 func _play(left: String, right: String, left_members: Array, right_members: Array, match_seed: int) -> Battle:
 	var left_scripts: Array[Script] = []
 	left_scripts.assign(left_members)
 	var right_scripts: Array[Script] = []
 	right_scripts.assign(right_members)
 	var battle: Battle = Battle.new(left_scripts, right_scripts)
+	var errors: Array[String] = []
+	for side: int in [Battle.PLAYER, Battle.ENEMY]:
+		var github: String = [left, right][side]
+		for error: String in Validator.check_side(battle, side, github):
+			errors.append("%s：%s" % [github, error])
+	if not errors.is_empty():
+		print("✗ %s vs %s：上場的角色沒有通過檢查：" % [left, right])
+		for error: String in errors:
+			print("    ", error)
+		for unit: Unit in battle.roster:
+			unit.free()
+		return null
 	battle.setup_versus(left, right)
 	var coin: RandomNumberGenerator = RandomNumberGenerator.new()
 	coin.seed = match_seed
